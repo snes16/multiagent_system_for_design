@@ -29,14 +29,14 @@ def research_agent() -> Agent:
     return Agent(
         role="Design Research Specialist",
         goal=(
-            "Собрать 4-6 визуальных референсов и сохранить их в workspace. "
-            "Парсить artlebedev.ru/everything/, искать на Awwwards и Dribbble. "
-            f"Результат сохранить в {REFS_FILE} через workspace_writer."
+            "Collect 4-6 visual references and save them to the workspace. "
+            "Crawl artlebedev.ru/everything/, search Awwwards and Dribbble. "
+            f"Save the result to {REFS_FILE} via workspace_writer."
         ),
         backstory=(
-            "Опытный арт-директор, который умеет быстро находить лучшие дизайн-решения. "
-            "Хорошо знает каталог Артлебедева — /everything/ содержит все проекты. "
-            "Всегда сохраняет результаты в файл — не держит данные в памяти."
+            "An experienced art director who quickly finds the best design solutions. "
+            "Knows the Artlebedev catalog well — /everything/ contains all projects. "
+            "Always saves results to a file — never keeps data only in memory."
         ),
         tools=[FirecrawlCrawlTool(), FirecrawlScrapeTool(), WebSearchTool(), WorkspaceWriterTool()],
         llm=_llm("claude-sonnet-4-5", temperature=0.3),
@@ -50,13 +50,13 @@ def style_analyst_agent() -> Agent:
     return Agent(
         role="Senior Art Director & Style Analyst",
         goal=(
-            f"Прочитать {REFS_FILE}, синтезировать DesignBrief. "
-            f"Сохранить JSON бриф в {BRIEF_FILE} через workspace_writer."
+            f"Read {REFS_FILE}, synthesize a DesignBrief. "
+            f"Save the JSON brief to {BRIEF_FILE} via workspace_writer."
         ),
         backstory=(
-            "Арт-директор с опытом в Pentagram и Артлебедеве. "
-            "Всегда читает данные из файлов, а не из описания задачи — "
-            "это позволяет работать с большими объёмами референсов без потери качества."
+            "An art director with experience at Pentagram and Artlebedev. "
+            "Always reads data from files rather than task descriptions — "
+            "this allows working with large volumes of references without losing quality."
         ),
         tools=[FileReaderTool(), WebSearchTool(), WorkspaceWriterTool()],
         llm=_llm("claude-opus-4-5", temperature=0.8),
@@ -70,12 +70,12 @@ def generator_agent() -> Agent:
     return Agent(
         role="Senior Frontend Designer & Developer",
         goal=(
-            f"Прочитать {BRIEF_FILE}, создать production-ready дизайн. "
-            "Сохранить финальный файл через file_writer в output/."
+            f"Read {BRIEF_FILE}, create a production-ready design. "
+            "Save the final file via file_writer to output/."
         ),
         backstory=(
-            "Senior frontend, который делает визуально выдающиеся интерфейсы. "
-            "Работает только с актуальными данными из файлов."
+            "A senior frontend developer who creates visually outstanding interfaces. "
+            "Always works with up-to-date data read from files."
         ),
         tools=[FileReaderTool(), FileWriterTool()],
         llm=_llm("claude-opus-4-5", temperature=0.9),
@@ -89,12 +89,12 @@ def critic_agent() -> Agent:
     return Agent(
         role="Design Critic & Quality Reviewer",
         goal=(
-            f"Прочитать {BRIEF_FILE}, оценить дизайн по 5 критериям. "
-            f"Сохранить CritiqueResult JSON в {CRITIQUE_FILE} через workspace_writer."
+            f"Read {BRIEF_FILE}, evaluate the design against 5 criteria. "
+            f"Save the CritiqueResult JSON to {CRITIQUE_FILE} via workspace_writer."
         ),
         backstory=(
-            "Жёсткий но справедливый критик. "
-            "Сверяет результат с брифом читая оба из файлов."
+            "A tough but fair critic. "
+            "Checks the result against the brief by reading both from files."
         ),
         tools=[FileReaderTool(), WorkspaceWriterTool()],
         llm=_llm("claude-sonnet-4-5", temperature=0.2),
@@ -104,30 +104,30 @@ def critic_agent() -> Agent:
     )
 
 
-# ── Таски — только пути к файлам, никаких данных в description ────────────────
+# ── Tasks — file paths only, no inline data in description ────────────────────
 
 def research_task(agent: Agent, prompt: str) -> Task:
     return Task(
         description=f"""
-Исследуй дизайн-референсы для задачи: **{prompt}**
+Research design references for the task: **{prompt}**
 
-1. Краулинг Артлебедева:
+1. Crawl Artlebedev:
    firecrawl_crawl(url="https://www.artlebedev.ru/everything/", limit=8)
-   Для 2-3 проектов — firecrawl_scrape с extract_prompt:
+   For 2-3 projects — firecrawl_scrape with extract_prompt:
    "Extract: project name, visual style, colors used, typography, key design patterns"
 
-2. Поиск дополнительных референсов:
+2. Search for additional references:
    web_search: "{prompt} website design awwwards 2024"
    web_search: "{prompt} brand identity dribbble behance"
 
-3. Сформируй отчёт по 4-6 лучшим референсам:
+3. Compile a report on the 4-6 best references:
    SOURCE / PROJECT / URL / KEY_PATTERNS / COLOR_NOTES / TYPOGRAPHY_NOTES
-   + блок SYNTHESIS (3 предложения об общих трендах)
+   + SYNTHESIS block (3 sentences on common trends)
 
-4. Сохрани ВЕСЬ результат:
-   workspace_writer(filename="references.md", content=<полный отчёт>)
+4. Save the FULL result:
+   workspace_writer(filename="references.md", content=<full report>)
 """,
-        expected_output=f"Подтверждение сохранения: {REFS_FILE}",
+        expected_output=f"Confirmation of save: {REFS_FILE}",
         agent=agent,
     )
 
@@ -135,22 +135,22 @@ def research_task(agent: Agent, prompt: str) -> Task:
 def style_task(agent: Agent, prompt: str) -> Task:
     return Task(
         description=f"""
-Сформируй DesignBrief для задачи: **{prompt}**
+Create a DesignBrief for the task: **{prompt}**
 
-1. Прочитай референсы:
+1. Read the references:
    file_reader(filepath="{REFS_FILE}")
 
-2. Синтезируй бриф:
-   - Шрифты из Google Fonts с характером (не Inter, не Roboto):
-     Заголовки: Cormorant Garamond / Syne / DM Serif Display / Fraunces / Playfair Display
-     Текст: DM Sans / Plus Jakarta Sans / Outfit / Manrope / Epilogue
-   - 5 конкретных HEX цветов
-   - style_direction: минимум 3 предложения
+2. Synthesize the brief:
+   - Google Fonts with character (not Inter, not Roboto):
+     Headings: Cormorant Garamond / Syne / DM Serif Display / Fraunces / Playfair Display
+     Body: DM Sans / Plus Jakarta Sans / Outfit / Manrope / Epilogue
+   - 5 specific HEX colors
+   - style_direction: at least 3 sentences
 
-3. Сохрани JSON (без markdown обёртки):
+3. Save JSON (no markdown wrapper):
    workspace_writer(filename="brief.json", content=<JSON>)
 
-JSON формат:
+JSON format:
 {{
   "color_primary": "#...", "color_secondary": "#...", "color_accent": "#...",
   "color_background": "#...", "color_text": "#...",
@@ -161,38 +161,38 @@ JSON формат:
   "target_audience": "...", "brand_personality": "..."
 }}
 """,
-        expected_output=f"Подтверждение сохранения: {BRIEF_FILE}",
+        expected_output=f"Confirmation of save: {BRIEF_FILE}",
         agent=agent,
     )
 
 
 _FORMAT_INSTRUCTIONS: dict[str, str] = {
     "html": (
-        "Создай полноценный одностраничный HTML лэндинг.\n"
-        "- <!DOCTYPE html>, Google Fonts через @import\n"
-        "- Минимум 5 секций: hero, about, services, showcase, contacts\n"
-        "- CSS переменные для цветов и шрифтов из брифа\n"
-        "- Hover-анимации, адаптивность (media queries)\n"
-        "- Реальный контент, не Lorem ipsum; декор через CSS/inline SVG\n"
-        "Сохрани: file_writer(filename=\"landing.html\", content=<полный HTML>)"
+        "Create a complete single-page HTML landing.\n"
+        "- <!DOCTYPE html>, Google Fonts via @import\n"
+        "- At least 5 sections: hero, about, services, showcase, contacts\n"
+        "- CSS variables for colors and fonts from the brief\n"
+        "- Hover animations, responsiveness (media queries)\n"
+        "- Real content, not Lorem ipsum; decorations via CSS/inline SVG\n"
+        "Save: file_writer(filename=\"landing.html\", content=<full HTML>)"
     ),
     "svg": (
-        "Создай SVG макет 1440x900px.\n"
-        "- viewBox=\"0 0 1440 900\", шрифты через <defs><style>@import\n"
-        "- Цвета из брифа, структура: header, hero, контент, footer\n"
-        "Сохрани: file_writer(filename=\"layout.svg\", content=<полный SVG>)"
+        "Create an SVG layout 1440x900px.\n"
+        "- viewBox=\"0 0 1440 900\", fonts via <defs><style>@import\n"
+        "- Colors from the brief, structure: header, hero, content, footer\n"
+        "Save: file_writer(filename=\"layout.svg\", content=<full SVG>)"
     ),
     "moodboard": (
-        "Создай HTML мудборд.\n"
-        "- CSS Grid сетка, цветовые чипы с HEX, типографические образцы\n"
-        "- Карточки референсов, блок визуальных ключей\n"
-        "Сохрани: file_writer(filename=\"moodboard.html\", content=<полный HTML>)"
+        "Create an HTML moodboard.\n"
+        "- CSS Grid layout, color chips with HEX, typography samples\n"
+        "- Reference cards, visual keys block\n"
+        "Save: file_writer(filename=\"moodboard.html\", content=<full HTML>)"
     ),
     "brandbook": (
-        "Создай HTML брендбук.\n"
-        "Разделы: миссия, логотип (SVG inline), цветовая система,\n"
-        "типографика, визуальный язык, примеры применения, do/don't.\n"
-        "Сохрани: file_writer(filename=\"brandbook.html\", content=<полный HTML>)"
+        "Create an HTML brandbook.\n"
+        "Sections: mission, logo (SVG inline), color system,\n"
+        "typography, visual language, usage examples, do/don't.\n"
+        "Save: file_writer(filename=\"brandbook.html\", content=<full HTML>)"
     ),
 }
 
@@ -200,21 +200,21 @@ _FORMAT_INSTRUCTIONS: dict[str, str] = {
 def generation_task(agent: Agent, prompt: str, output_format: str,
                     revision_notes: str = "") -> Task:
     instructions = _FORMAT_INSTRUCTIONS.get(output_format, _FORMAT_INSTRUCTIONS["html"])
-    revision_block = f"\n[ПРАВКИ ОТ КРИТИКА]\n{revision_notes}\n" if revision_notes else ""
+    revision_block = f"\n[CRITIC REVISIONS]\n{revision_notes}\n" if revision_notes else ""
 
     return Task(
         description=f"""
-Создай дизайн для задачи: **{prompt}**
-Формат: **{output_format}**
+Create a design for the task: **{prompt}**
+Format: **{output_format}**
 {revision_block}
-1. Прочитай бриф:
+1. Read the brief:
    file_reader(filepath="{BRIEF_FILE}")
 
 2. {instructions}
 
-Строго следуй цветам и шрифтам из брифа.
+Strictly follow the colors and fonts from the brief.
 """,
-        expected_output="Подтверждение сохранения финального файла в output/.",
+        expected_output="Confirmation of final file saved to output/.",
         agent=agent,
     )
 
@@ -222,21 +222,21 @@ def generation_task(agent: Agent, prompt: str, output_format: str,
 def critique_task(agent: Agent, prompt: str, output_path: str) -> Task:
     return Task(
         description=f"""
-Оцени дизайн для задачи: **{prompt}**
-Файл для оценки: {output_path}
+Evaluate the design for the task: **{prompt}**
+File to evaluate: {output_path}
 
-1. Прочитай бриф для сверки:
+1. Read the brief for cross-checking:
    file_reader(filepath="{BRIEF_FILE}")
 
-2. Оцени дизайн (каждый критерий 0.0–10.0):
+2. Score the design (each criterion 0.0–10.0):
    - visual_hierarchy_score, typography_score, color_harmony_score
    - layout_score, brief_alignment_score
-   overall_score = среднее; should_iterate=true если < 7.0
+   overall_score = average; should_iterate=true if < 7.0
 
-3. Сохрани результат:
-   workspace_writer(filename="critique.json", content=<JSON без markdown>)
+3. Save the result:
+   workspace_writer(filename="critique.json", content=<JSON without markdown>)
 
-JSON формат:
+JSON format:
 {{
   "overall_score": 0.0,
   "visual_hierarchy_score": 0.0, "typography_score": 0.0,
@@ -245,6 +245,6 @@ JSON формат:
   "verdict": "...", "should_iterate": false, "revised_brief_notes": "..."
 }}
 """,
-        expected_output=f"Подтверждение сохранения: {CRITIQUE_FILE}",
+        expected_output=f"Confirmation of save: {CRITIQUE_FILE}",
         agent=agent,
     )

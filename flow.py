@@ -29,12 +29,12 @@ MIN_SCORE = float(os.getenv("MIN_QUALITY_SCORE", "7.0"))
 
 class DesignerFlow(Flow[DesignerState]):
     """
-    Пайплайн:
+    Pipeline:
       research → analyze_style → generate → critique
-                                    ↑____________|  (если should_iterate)
+                                    ↑____________|  (if should_iterate)
 
-    Данные между агентами передаются через файлы в output/.workspace/,
-    а не через self.state или task.description — контекст не засоряется.
+    Data between agents is passed through files in output/.workspace/,
+    not through self.state or task.description — keeps context clean.
     """
 
     # ── 1. Research ───────────────────────────────────────────────────────────
@@ -42,8 +42,8 @@ class DesignerFlow(Flow[DesignerState]):
     @start()
     def research(self) -> str:
         console.print(Panel(
-            f"[bold]Задача:[/bold] {self.state.prompt}\n"
-            f"[bold]Формат:[/bold] {self.state.output_format.value}",
+            f"[bold]Task:[/bold] {self.state.prompt}\n"
+            f"[bold]Format:[/bold] {self.state.output_format.value}",
             title="[cyan]Step 1 / Research Agent[/cyan]",
             border_style="cyan",
         ))
@@ -52,8 +52,8 @@ class DesignerFlow(Flow[DesignerState]):
         task = research_task(agent, self.state.prompt)
         Crew(agents=[agent], tasks=[task], process=Process.sequential, verbose=False).kickoff()
 
-        # Не читаем результат в state — он лежит в output/.workspace/references.md
-        # Style Analyst прочитает сам через FileReaderTool
+        # Result is not read into state — it lives in output/.workspace/references.md
+        # Style Analyst will read it directly via FileReaderTool
         console.print("[green]Research done[/green] → output/.workspace/references.md")
         return "analyze"
 
@@ -62,17 +62,17 @@ class DesignerFlow(Flow[DesignerState]):
     @listen("analyze")
     def analyze_style(self) -> str:
         console.print(Panel(
-            "Читаю references.md → синтезирую бриф → сохраняю brief.json",
+            "Reading references.md → synthesizing brief → saving brief.json",
             title="[cyan]Step 2 / Style Analyst[/cyan]",
             border_style="cyan",
         ))
 
         agent = style_analyst_agent()
         task = style_task(agent, self.state.prompt)
-        # Никаких данных в description — агент сам читает файл
+        # No data in description — agent reads the file itself
         Crew(agents=[agent], tasks=[task], process=Process.sequential, verbose=False).kickoff()
 
-        # Парсим бриф из файла для state (нужен только для финального лога)
+        # Parse brief from file into state (only needed for final log)
         brief = _read_workspace_model("brief.json", DesignBrief)
         if brief:
             self.state.brief = brief
@@ -89,12 +89,12 @@ class DesignerFlow(Flow[DesignerState]):
     @listen("generate")
     def generate(self) -> str:
         console.print(Panel(
-            f"Читаю brief.json → генерирую дизайн (итерация {self.state.iteration + 1})",
+            f"Reading brief.json → generating design (iteration {self.state.iteration + 1})",
             title="[cyan]Step 3 / Design Generator[/cyan]",
             border_style="cyan",
         ))
 
-        # Правки критика берём из файла — не из self.state
+        # Critic's revision notes come from file — not from self.state
         revision_notes = _build_revision_notes()
 
         agent = generator_agent()
@@ -104,7 +104,7 @@ class DesignerFlow(Flow[DesignerState]):
             self.state.output_format.value,
             revision_notes=revision_notes,
         )
-        # Никаких данных в description — агент сам читает brief.json
+        # No data in description — agent reads brief.json itself
         Crew(agents=[agent], tasks=[task], process=Process.sequential, verbose=False).kickoff()
 
         self.state.output_path = _find_latest_output(self.state.output_format)
@@ -116,17 +116,17 @@ class DesignerFlow(Flow[DesignerState]):
     @listen("critique")
     def critique(self) -> str:
         console.print(Panel(
-            f"Читаю brief.json + {self.state.output_path} → оцениваю",
+            f"Reading brief.json + {self.state.output_path} → evaluating",
             title="[cyan]Step 4 / Critic Agent[/cyan]",
             border_style="cyan",
         ))
 
         agent = critic_agent()
-        # Передаём только путь к финальному файлу — агент сам читает бриф
+        # Only the output file path is passed — agent reads the brief itself
         task = critique_task(agent, self.state.prompt, self.state.output_path)
         Crew(agents=[agent], tasks=[task], process=Process.sequential, verbose=False).kickoff()
 
-        # Читаем результат из файла
+        # Read result from file
         critique_result = _read_workspace_model("critique.json", CritiqueResult)
         if critique_result:
             self.state.critique = critique_result
@@ -136,7 +136,7 @@ class DesignerFlow(Flow[DesignerState]):
                 f" — {critique_result.verdict}"
             )
         else:
-            console.print("[yellow]Critique file not parsed — принимаем как есть[/yellow]")
+            console.print("[yellow]Critique file not parsed — accepting as-is[/yellow]")
             self.state.accepted = True
             return "done"
 
@@ -152,11 +152,11 @@ class DesignerFlow(Flow[DesignerState]):
 
         if c.overall_score >= MIN_SCORE or not c.should_iterate:
             self.state.accepted = True
-            console.print("[green]Качество принято.[/green]")
+            console.print("[green]Quality accepted.[/green]")
             return "done"
 
         console.print(
-            f"[yellow]Нужна доработка (score {c.overall_score:.1f} < {MIN_SCORE})[/yellow]"
+            f"[yellow]Revision needed (score {c.overall_score:.1f} < {MIN_SCORE})[/yellow]"
         )
         for imp in c.improvements[:3]:
             console.print(f"  • {imp}")
@@ -172,17 +172,17 @@ class DesignerFlow(Flow[DesignerState]):
         if self.state.critique:
             c = self.state.critique
             score_line = (
-                f"\nОценка: {c.overall_score:.1f}/10 — {c.verdict}"
-                f"\nСильные стороны: {', '.join(c.strengths[:2])}"
+                f"\nScore: {c.overall_score:.1f}/10 — {c.verdict}"
+                f"\nStrengths: {', '.join(c.strengths[:2])}"
             )
 
         console.print(Panel(
-            f"[bold green]Готово![/bold green]\n"
-            f"Файл: {self.state.output_path}\n"
-            f"Итераций: {self.state.iteration + 1}"
+            f"[bold green]Done![/bold green]\n"
+            f"File: {self.state.output_path}\n"
+            f"Iterations: {self.state.iteration + 1}"
             f"{score_line}\n\n"
             f"[dim]Workspace: output/.workspace/ (references.md, brief.json, critique.json)[/dim]",
-            title="Результат",
+            title="Result",
             border_style="green",
         ))
 
@@ -190,7 +190,7 @@ class DesignerFlow(Flow[DesignerState]):
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _read_workspace_model(filename: str, model_cls):
-    """Читает JSON из workspace и валидирует через Pydantic."""
+    """Reads JSON from workspace and validates via Pydantic."""
     path = workspace_path(filename)
     if not path.exists():
         return None
@@ -207,13 +207,13 @@ def _read_workspace_model(filename: str, model_cls):
 
 
 def _build_revision_notes() -> str:
-    """Читает critique.json из workspace если есть — для revision hints."""
+    """Reads critique.json from workspace if present — for revision hints."""
     critique = _read_workspace_model("critique.json", CritiqueResult)
     if not critique:
         return ""
     return (
-        f"Предыдущая оценка: {critique.overall_score:.1f}/10\n"
-        f"Улучши: {'; '.join(critique.improvements)}\n"
+        f"Previous score: {critique.overall_score:.1f}/10\n"
+        f"Improve: {'; '.join(critique.improvements)}\n"
         f"{critique.revised_brief_notes}"
     )
 

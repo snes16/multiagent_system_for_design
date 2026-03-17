@@ -9,19 +9,19 @@ from pydantic import BaseModel, Field
 # ── Firecrawl scrape ───────────────────────────────────────────────────────────
 
 class ScrapeInput(BaseModel):
-    url: str = Field(description="URL страницы для скрапинга")
+    url: str = Field(description="URL of the page to scrape")
     extract_prompt: Optional[str] = Field(
         default=None,
-        description="Промпт для LLM-извлечения структурированных данных"
+        description="Prompt for LLM-based structured data extraction"
     )
 
 
 class FirecrawlScrapeTool(BaseTool):
     name: str = "firecrawl_scrape"
     description: str = (
-        "Скрапит одну страницу и возвращает Markdown контент. "
-        "Используй для artlebedev.ru, awwwards.com, dribbble.com и других дизайн-сайтов. "
-        "Передай extract_prompt чтобы достать структурированные данные через LLM."
+        "Scrapes a single page and returns Markdown content. "
+        "Use for artlebedev.ru, awwwards.com, dribbble.com and other design sites. "
+        "Pass extract_prompt to extract structured data via LLM."
     )
     args_schema: type[BaseModel] = ScrapeInput
 
@@ -49,18 +49,18 @@ class FirecrawlScrapeTool(BaseTool):
             return f"[firecrawl_scrape error] {url}: {e}"
 
 
-# ── Firecrawl crawl (несколько страниц) ───────────────────────────────────────
+# ── Firecrawl crawl (multiple pages) ──────────────────────────────────────────
 
 class CrawlInput(BaseModel):
-    url: str = Field(description="Стартовый URL для краулинга")
-    limit: int = Field(default=6, description="Макс. кол-во страниц (не более 10)")
+    url: str = Field(description="Starting URL for crawling")
+    limit: int = Field(default=6, description="Max number of pages (no more than 10)")
 
 
 class FirecrawlCrawlTool(BaseTool):
     name: str = "firecrawl_crawl"
     description: str = (
-        "Краулит сайт и возвращает контент нескольких страниц. "
-        "Идеально для artlebedev.ru/everything/ — собрать сразу несколько проектов."
+        "Crawls a site and returns content from multiple pages. "
+        "Ideal for artlebedev.ru/everything/ — to collect several projects at once."
     )
     args_schema: type[BaseModel] = CrawlInput
 
@@ -83,7 +83,7 @@ class FirecrawlCrawlTool(BaseTool):
                 src = meta.get("sourceURL", "")
                 summaries.append(f"### {title}\nURL: {src}\n{content}")
 
-            return "\n\n---\n\n".join(summaries) if summaries else "Страницы не найдены."
+            return "\n\n---\n\n".join(summaries) if summaries else "No pages found."
 
         except Exception as e:
             return f"[firecrawl_crawl error] {url}: {e}"
@@ -92,16 +92,16 @@ class FirecrawlCrawlTool(BaseTool):
 # ── Web search (DuckDuckGo, без API) ──────────────────────────────────────────
 
 class SearchInput(BaseModel):
-    query: str = Field(description="Поисковый запрос на английском")
+    query: str = Field(description="Search query in English")
     max_results: int = Field(default=5)
 
 
 class WebSearchTool(BaseTool):
     name: str = "web_search"
     description: str = (
-        "Ищет в вебе по запросу. "
-        "Используй для поиска референсов на Awwwards, Dribbble, Behance. "
-        "Запросы лучше формулировать на английском."
+        "Searches the web by query. "
+        "Use to find references on Awwwards, Dribbble, Behance. "
+        "Queries should be formulated in English."
     )
     args_schema: type[BaseModel] = SearchInput
 
@@ -114,7 +114,7 @@ class WebSearchTool(BaseTool):
                     results.append(
                         f"**{r['title']}**\n{r['href']}\n{r['body'][:250]}"
                     )
-            return "\n\n".join(results) if results else "Ничего не найдено."
+            return "\n\n".join(results) if results else "No results found."
         except Exception as e:
             return f"[web_search error] {e}"
 
@@ -122,15 +122,15 @@ class WebSearchTool(BaseTool):
 # ── File writer ────────────────────────────────────────────────────────────────
 
 class WriteInput(BaseModel):
-    filename: str = Field(description="Имя файла с расширением, напр. landing.html")
-    content: str = Field(description="Полное содержимое файла")
+    filename: str = Field(description="Filename with extension, e.g. landing.html")
+    content: str = Field(description="Full file contents")
 
 
 class FileWriterTool(BaseTool):
     name: str = "file_writer"
     description: str = (
-        "Сохраняет готовый HTML, SVG или Markdown файл в папку output/. "
-        "Всегда вызывай в конце генерации."
+        "Saves a finished HTML, SVG or Markdown file to the output/ directory. "
+        "Always call at the end of generation."
     )
     args_schema: type[BaseModel] = WriteInput
 

@@ -14,23 +14,23 @@ console = Console()
     "--format", "-f", "output_format",
     type=click.Choice(["html", "svg", "moodboard", "brandbook"]),
     default="html", show_default=True,
-    help="Формат выходного файла",
+    help="Output file format",
 )
 @click.option(
     "--min-score", "-s",
     default=7.0, show_default=True,
-    help="Минимальный балл качества 0-10 для принятия результата",
+    help="Minimum quality score 0-10 to accept the result",
 )
 def design(prompt: str, output_format: str, min_score: float):
     """
-    AI Designer — мультиагентная дизайн-система на CrewAI Flow.
+    AI Designer — multi-agent design system built on CrewAI Flow.
 
     \b
-    Примеры:
-      python main.py "лэндинг для архитектурного бюро"
-      python main.py "фирменный стиль кофейни" --format brandbook
-      python main.py "сайт для фотографа" --format html --min-score 8
-      python main.py "брендинг IT стартапа" --format moodboard
+    Examples:
+      python main.py "landing page for an architecture studio"
+      python main.py "brand identity for a coffee shop" --format brandbook
+      python main.py "website for a photographer" --format html --min-score 8
+      python main.py "branding for an IT startup" --format moodboard
     """
     os.environ["MIN_QUALITY_SCORE"] = str(min_score)
     os.makedirs(os.getenv("OUTPUT_DIR", "./output"), exist_ok=True)
@@ -47,9 +47,9 @@ def design(prompt: str, output_format: str, min_score: float):
         flow = DesignerFlow()
         flow.kickoff(inputs={"prompt": prompt, "output_format": output_format})
     except KeyboardInterrupt:
-        console.print("\n[yellow]Прервано.[/yellow]")
+        console.print("\n[yellow]Interrupted.[/yellow]")
     except Exception as e:
-        console.print(f"\n[red]Ошибка: {e}[/red]")
+        console.print(f"\n[red]Error: {e}[/red]")
         raise
 
 

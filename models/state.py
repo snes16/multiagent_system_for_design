@@ -53,13 +53,13 @@ class CritiqueResult(BaseModel):
 
 
 class DesignerState(FlowState):
-    """Typed state — автоматически передаётся между всеми шагами Flow."""
+    """Typed state — automatically passed between all Flow steps."""
 
     # Input
     prompt: str = ""
     output_format: OutputFormat = OutputFormat.HTML
 
-    # Pipeline data (заполняется агентами по ходу)
+    # Pipeline data (populated by agents as the pipeline runs)
     references_raw: str = ""
     brief: Optional[DesignBrief] = None
     brief_raw: str = ""
@@ -67,6 +67,6 @@ class DesignerState(FlowState):
     critique: Optional[CritiqueResult] = None
     critique_raw: str = ""
 
-    # Итерации
+    # Iterations
     iteration: int = 0
     accepted: bool = False

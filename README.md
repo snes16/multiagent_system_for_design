@@ -1,35 +1,35 @@
 # AI Designer — CrewAI Flow
 
-Мультиагентная дизайн-система на **CrewAI Flow 1.10+**.
-Агенты работают через typed `FlowState`, шаги соединены `@start` / `@listen` / `@router`.
+A multi-agent design system built on **CrewAI Flow 1.10+**.
+Agents operate through a typed `FlowState`; steps are wired together with `@start` / `@listen` / `@router`.
 
-## Архитектура Flow
+## Flow Architecture
 
 ```
 @start  research()         — Research Agent (Firecrawl + WebSearch)
           │
 @listen analyze_style()    — Style Analyst → DesignBrief (JSON)
           │
-@listen generate()         — Design Generator → файл в output/
+@listen generate()         — Design Generator → file in output/
           │
 @listen critique()         — Critic Agent → CritiqueResult (JSON)
           │
 @router check_quality()    ──→ "done"     (score ≥ MIN_SCORE)
-                           └──→ "generate" (итерация, score < MIN_SCORE)
+                           └──→ "generate" (iterate, score < MIN_SCORE)
           │
-@listen done()             — финальный вывод
+@listen done()             — final output
 ```
 
-Весь shared state — `DesignerState(FlowState)`. Каждый шаг читает и пишет
-в `self.state` напрямую. Никаких `context=[]` между тасками — данные
-передаются через state.
+All shared state lives in `DesignerState(FlowState)`. Each step reads and writes
+`self.state` directly. There are no `context=[]` lists between tasks — data is
+passed through files in `output/.workspace/`.
 
-## Установка
+## Installation
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env   # заполни ключи
+cp .env.example .env   # fill in your API keys
 ```
 
 `.env`:
@@ -40,41 +40,41 @@ MIN_QUALITY_SCORE=7.0
 OUTPUT_DIR=./output
 ```
 
-## Использование
+## Usage
 
 ```bash
-python main.py "лэндинг для архитектурного бюро"
-python main.py "фирменный стиль ресторана" --format brandbook
-python main.py "сайт для фотографа" --format moodboard
-python main.py "премиальный ювелирный бренд" --format html --min-score 8
+python main.py "landing page for an architecture studio"
+python main.py "brand identity for a restaurant" --format brandbook
+python main.py "website for a photographer" --format moodboard
+python main.py "premium jewelry brand" --format html --min-score 8
 ```
 
-## Форматы
+## Output Formats
 
-| Флаг | Файл | Описание |
-|------|------|----------|
-| `html` | `landing.html` | Полный одностраничный лэндинг |
-| `svg` | `layout.svg` | Визуальный макет 1440×900px |
-| `moodboard` | `moodboard.html` | Референсы, палитра, типографика |
-| `brandbook` | `brandbook.html` | Логотип, цвета, шрифты, примеры |
+| Flag | File | Description |
+|------|------|-------------|
+| `html` | `landing.html` | Full single-page landing |
+| `svg` | `layout.svg` | Visual layout 1440×900px |
+| `moodboard` | `moodboard.html` | References, palette, typography |
+| `brandbook` | `brandbook.html` | Logo, colors, fonts, usage examples |
 
-## Структура проекта
+## Project Structure
 
 ```
 ai-designer/
 ├── main.py               # CLI (click)
-├── flow.py               # DesignerFlow — весь пайплайн
+├── flow.py               # DesignerFlow — full pipeline
 ├── agents/
-│   └── builders.py       # Фабрики агентов и тасков
+│   └── builders.py       # Agent and task factories
 ├── tools/
 │   └── design_tools.py   # Firecrawl, WebSearch, FileWriter
 ├── models/
 │   └── state.py          # DesignerState(FlowState), DesignBrief, CritiqueResult
-└── output/               # Результаты генерации
+└── output/               # Generated results
 ```
 
-## Как добавить новый формат
+## Adding a New Format
 
-1. `models/state.py` — добавь значение в `OutputFormat`
-2. `agents/builders.py` — добавь инструкцию в `_FORMAT_INSTRUCTIONS`
-3. `main.py` — добавь в `click.Choice`
+1. `models/state.py` — add a value to `OutputFormat`
+2. `agents/builders.py` — add instructions to `_FORMAT_INSTRUCTIONS`
+3. `main.py` — add to `click.Choice`
