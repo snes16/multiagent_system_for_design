@@ -1,8 +1,11 @@
-crewai>=1.10.0
+crewai[anthropic]>=1.10.0
 crewai-tools>=1.10.0
 firecrawl-py>=1.4.0
 python-dotenv>=1.0.0
 pydantic>=2.6.0
+pydantic-settings>=2.0.0
 rich>=13.7.0
 click>=8.1.7
 duckduckgo-search>=6.0.0
+pytest>=8.0.0
+pytest-mock>=3.12.0

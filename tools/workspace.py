@@ -1,6 +1,8 @@
 from __future__ import annotations
+import logging
 import os
 from pathlib import Path
+logger = logging.getLogger(__name__)
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
 
@@ -39,6 +41,7 @@ class FileReaderTool(BaseTool):
         try:
             return path.read_text(encoding="utf-8")
         except Exception as e:
+            logger.error("file_reader failed path=%s: %s", filepath, e)
             return f"[file_reader] Read error {filepath}: {e}"
 
 

@@ -5,6 +5,9 @@ from dotenv import load_dotenv
 from rich.console import Console
 
 load_dotenv()
+from config.settings import settings
+from config.logging_config import setup_logging
+setup_logging()
 console = Console()
 
 
@@ -32,8 +35,9 @@ def design(prompt: str, output_format: str, min_score: float):
       python main.py "website for a photographer" --format html --min-score 8
       python main.py "branding for an IT startup" --format moodboard
     """
+    # min_score CLI override is passed via env for backward compat
     os.environ["MIN_QUALITY_SCORE"] = str(min_score)
-    os.makedirs(os.getenv("OUTPUT_DIR", "./output"), exist_ok=True)
+    os.makedirs(settings.output_dir, exist_ok=True)
 
     from flow import DesignerFlow
     from models.state import DesignerState, OutputFormat

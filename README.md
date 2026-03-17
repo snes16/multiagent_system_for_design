@@ -3,6 +3,34 @@
 A multi-agent design system built on **CrewAI Flow 1.10+**.
 Agents operate through a typed `FlowState`; steps are wired together with `@start` / `@listen` / `@router`.
 
+## Pipeline
+
+```mermaid
+flowchart TD
+    U([User prompt]) --> F[DesignerFlow]
+    F --> O[ReAct Orchestrator]
+
+    O -->|run_research| R[Research Agent]
+    R -->|references.md| WS[(Workspace\noutput/.workspace/)]
+
+    O -->|run_style_analysis| SA[Style Analyst]
+    WS -->|read references.md| SA
+    SA -->|brief.json| WS
+
+    O -->|run_generation| G[Design Generator]
+    WS -->|read brief.json| G
+    G -->|landing.html / layout.svg| OUT[(output/)]
+
+    O -->|run_critique| C[Critic Agent]
+    WS -->|read brief.json| C
+    C -->|critique.json| WS
+
+    WS -->|read critique.json| O
+    O -->|score >= min?| DEC{Quality\ncheck}
+    DEC -->|yes| DONE([Done])
+    DEC -->|no, pass revision_notes| G
+```
+
 ## Flow Architecture
 
 ```

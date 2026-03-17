@@ -1,0 +1,9 @@
+Create a design for the task: {prompt}
+Format: {output_format}
+{revision_block}
+1. Read the brief:
+   file_reader(filepath="{brief_file}")
+
+2. {instructions}
+
+Strictly follow the colors and fonts from the brief.

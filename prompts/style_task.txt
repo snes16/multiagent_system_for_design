@@ -1,0 +1,25 @@
+Create a DesignBrief for the task: {prompt}
+
+1. Read the references:
+   file_reader(filepath="{refs_file}")
+
+2. Synthesize the brief:
+   - Google Fonts with character (not Inter, not Roboto):
+     Headings: Cormorant Garamond / Syne / DM Serif Display / Fraunces / Playfair Display
+     Body: DM Sans / Plus Jakarta Sans / Outfit / Manrope / Epilogue
+   - 5 specific HEX colors
+   - style_direction: at least 3 sentences
+
+3. Save JSON (no markdown wrapper):
+   workspace_writer(filename="brief.json", content=<JSON>)
+
+JSON format:
+{{
+  "color_primary": "#...", "color_secondary": "#...", "color_accent": "#...",
+  "color_background": "#...", "color_text": "#...",
+  "font_heading": "...", "font_body": "...",
+  "style_direction": "...", "mood": "...",
+  "layout_pattern": "...", "visual_metaphor": "...",
+  "key_elements": ["...", "...", "..."],
+  "target_audience": "...", "brand_personality": "..."
+}}

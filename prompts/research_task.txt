@@ -1,0 +1,17 @@
+Research design references for the task: {prompt}
+
+1. Crawl Artlebedev:
+   firecrawl_crawl(url="https://www.artlebedev.ru/everything/", limit=8)
+   For 2-3 projects — firecrawl_scrape with extract_prompt:
+   "Extract: project name, visual style, colors used, typography, key design patterns"
+
+2. Search for additional references:
+   web_search: "{prompt} website design awwwards 2024"
+   web_search: "{prompt} brand identity dribbble behance"
+
+3. Compile a report on the 4-6 best references:
+   SOURCE / PROJECT / URL / KEY_PATTERNS / COLOR_NOTES / TYPOGRAPHY_NOTES
+   + SYNTHESIS block (3 sentences on common trends)
+
+4. Save the FULL result:
+   workspace_writer(filename="references.md", content=<full report>)

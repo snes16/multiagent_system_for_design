@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import logging
 import os
 import re
 from pathlib import Path
@@ -8,6 +9,7 @@ from crewai import Crew, Process
 from crewai.flow.flow import Flow, listen, router, start
 from rich.console import Console
 from rich.panel import Panel
+logger = logging.getLogger(__name__)
 
 from agents.builders import (
     CRITIQUE_FILE,
@@ -20,11 +22,11 @@ from agents.builders import (
     style_analyst_agent,
     style_task,
 )
+from config.settings import settings
 from models.state import CritiqueResult, DesignBrief, DesignerState, OutputFormat
 from tools.workspace import workspace_path
 
 console = Console()
-MIN_SCORE = float(os.getenv("MIN_QUALITY_SCORE", "7.0"))
 
 
 class DesignerFlow(Flow[DesignerState]):
@@ -47,6 +49,7 @@ class DesignerFlow(Flow[DesignerState]):
             title="[cyan]Step 1 / Research Agent[/cyan]",
             border_style="cyan",
         ))
+        logger.info("Pipeline started | prompt=%r format=%s", self.state.prompt, self.state.output_format.value)
 
         agent = research_agent()
         task = research_task(agent, self.state.prompt)
@@ -130,7 +133,7 @@ class DesignerFlow(Flow[DesignerState]):
         critique_result = _read_workspace_model("critique.json", CritiqueResult)
         if critique_result:
             self.state.critique = critique_result
-            color = "green" if critique_result.overall_score >= MIN_SCORE else "yellow"
+            color = "green" if critique_result.overall_score >= settings.min_quality_score else "yellow"
             console.print(
                 f"[{color}]Score: {critique_result.overall_score:.1f}/10[/{color}]"
                 f" — {critique_result.verdict}"
@@ -150,13 +153,13 @@ class DesignerFlow(Flow[DesignerState]):
         if not c:
             return "done"
 
-        if c.overall_score >= MIN_SCORE or not c.should_iterate:
+        if c.overall_score >= settings.min_quality_score or not c.should_iterate:
             self.state.accepted = True
             console.print("[green]Quality accepted.[/green]")
             return "done"
 
         console.print(
-            f"[yellow]Revision needed (score {c.overall_score:.1f} < {MIN_SCORE})[/yellow]"
+            f"[yellow]Revision needed (score {c.overall_score:.1f} < {settings.min_quality_score})[/yellow]"
         )
         for imp in c.improvements[:3]:
             console.print(f"  • {imp}")
@@ -185,6 +188,8 @@ class DesignerFlow(Flow[DesignerState]):
             title="Result",
             border_style="green",
         ))
+        logger.info("Pipeline finished | output=%s score=%s", self.state.output_path,
+                    self.state.critique.overall_score if self.state.critique else "n/a")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

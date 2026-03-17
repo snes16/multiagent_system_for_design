@@ -1,0 +1,33 @@
+Create a design for the task: {prompt}
+Output format: {output_format}
+Minimum quality score: {min_score}/10
+
+Your ReAct process:
+
+THINK: What does this task need? Is deep research required or is this standard?
+ACT: Run run_research(prompt="{prompt}")
+OBSERVE: Read result via read_workspace_file(filename="references.md")
+         Enough references? Are they relevant?
+
+THINK: Ready to form the brief?
+ACT: Run run_style_analysis(prompt="{prompt}")
+OBSERVE: read_workspace_file(filename="brief.json")
+         Are the colors specific? Do the fonts have character?
+
+THINK: Is the brief strong enough for generation?
+ACT: Run run_generation(prompt="{prompt}", output_format="{output_format}")
+
+THINK: Need to evaluate the result.
+ACT: Run run_critique(prompt="{prompt}", output_path="output/...")
+OBSERVE: read_workspace_file(filename="critique.json")
+         overall_score >= {min_score}? If not — what specifically needs improvement?
+
+THINK: Is another iteration needed?
+ACT: If score < {min_score} — run run_generation with revision_notes from critique.json
+     If score >= {min_score} — task complete.
+
+Rules:
+- Always read the agent result before the next step
+- Formulate revision_notes specifically: "increase heading contrast", not "improve design"
+- Maximum 3 generation iterations
+- If score is still low after 3 iterations — finish with the best result

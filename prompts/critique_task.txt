@@ -1,0 +1,22 @@
+Evaluate the design for the task: {prompt}
+File to evaluate: {output_path}
+
+1. Read the brief for cross-checking:
+   file_reader(filepath="{brief_file}")
+
+2. Score the design (each criterion 0.0–10.0):
+   - visual_hierarchy_score, typography_score, color_harmony_score
+   - layout_score, brief_alignment_score
+   overall_score = average; should_iterate=true if < 7.0
+
+3. Save the result:
+   workspace_writer(filename="critique.json", content=<JSON without markdown>)
+
+JSON format:
+{{
+  "overall_score": 0.0,
+  "visual_hierarchy_score": 0.0, "typography_score": 0.0,
+  "color_harmony_score": 0.0, "layout_score": 0.0, "brief_alignment_score": 0.0,
+  "strengths": ["...", "..."], "improvements": ["...", "..."],
+  "verdict": "...", "should_iterate": false, "revised_brief_notes": "..."
+}}

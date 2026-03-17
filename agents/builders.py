@@ -1,25 +1,31 @@
 from __future__ import annotations
 import os
+from pathlib import Path
 from crewai import Agent, Task, LLM
+from config.settings import settings
+
+
+def _load_prompt(name: str) -> str:
+    """Load a prompt template from the prompts/ directory."""
+    return (Path(__file__).parent.parent / "prompts" / f"{name}.txt").read_text(encoding="utf-8")
 
 from tools.design_tools import (
     FirecrawlScrapeTool,
     FirecrawlCrawlTool,
     WebSearchTool,
     FileWriterTool,
-    FileReaderTool,
-    WorkspaceWriterTool,
 )
+from tools.workspace import FileReaderTool, WorkspaceWriterTool
 
 REFS_FILE     = "output/.workspace/references.md"
 BRIEF_FILE    = "output/.workspace/brief.json"
 CRITIQUE_FILE = "output/.workspace/critique.json"
 
 
-def _llm(model: str = "claude-sonnet-4-5", temperature: float = 0.7) -> LLM:
+def _llm(model: str, temperature: float) -> LLM:
     return LLM(
         model=f"anthropic/{model}",
-        api_key=os.getenv("ANTHROPIC_API_KEY"),
+        api_key=settings.anthropic_api_key,
         temperature=temperature,
         max_tokens=8192,
     )
@@ -39,10 +45,10 @@ def research_agent() -> Agent:
             "Always saves results to a file — never keeps data only in memory."
         ),
         tools=[FirecrawlCrawlTool(), FirecrawlScrapeTool(), WebSearchTool(), WorkspaceWriterTool()],
-        llm=_llm("claude-sonnet-4-5", temperature=0.3),
+        llm=_llm(settings.research_model, settings.research_temperature),
+        max_iter=settings.max_research_iter,
         verbose=True,
         allow_delegation=False,
-        max_iter=6,
     )
 
 
@@ -59,7 +65,7 @@ def style_analyst_agent() -> Agent:
             "this allows working with large volumes of references without losing quality."
         ),
         tools=[FileReaderTool(), WebSearchTool(), WorkspaceWriterTool()],
-        llm=_llm("claude-opus-4-5", temperature=0.8),
+        llm=_llm(settings.analyst_model, settings.analyst_temperature),
         verbose=True,
         allow_delegation=False,
         max_iter=3,
@@ -78,10 +84,10 @@ def generator_agent() -> Agent:
             "Always works with up-to-date data read from files."
         ),
         tools=[FileReaderTool(), FileWriterTool()],
-        llm=_llm("claude-opus-4-5", temperature=0.9),
+        llm=_llm(settings.generator_model, settings.generator_temperature),
+        max_iter=settings.max_generation_iter,
         verbose=True,
         allow_delegation=False,
-        max_iter=3,
     )
 
 
@@ -97,10 +103,10 @@ def critic_agent() -> Agent:
             "Checks the result against the brief by reading both from files."
         ),
         tools=[FileReaderTool(), WorkspaceWriterTool()],
-        llm=_llm("claude-sonnet-4-5", temperature=0.2),
+        llm=_llm(settings.critic_model, settings.critic_temperature),
+        max_iter=settings.max_critic_iter,
         verbose=True,
         allow_delegation=False,
-        max_iter=2,
     )
 
 
@@ -108,25 +114,7 @@ def critic_agent() -> Agent:
 
 def research_task(agent: Agent, prompt: str) -> Task:
     return Task(
-        description=f"""
-Research design references for the task: **{prompt}**
-
-1. Crawl Artlebedev:
-   firecrawl_crawl(url="https://www.artlebedev.ru/everything/", limit=8)
-   For 2-3 projects — firecrawl_scrape with extract_prompt:
-   "Extract: project name, visual style, colors used, typography, key design patterns"
-
-2. Search for additional references:
-   web_search: "{prompt} website design awwwards 2024"
-   web_search: "{prompt} brand identity dribbble behance"
-
-3. Compile a report on the 4-6 best references:
-   SOURCE / PROJECT / URL / KEY_PATTERNS / COLOR_NOTES / TYPOGRAPHY_NOTES
-   + SYNTHESIS block (3 sentences on common trends)
-
-4. Save the FULL result:
-   workspace_writer(filename="references.md", content=<full report>)
-""",
+        description=_load_prompt("research_task").replace("{prompt}", prompt),
         expected_output=f"Confirmation of save: {REFS_FILE}",
         agent=agent,
     )
@@ -134,33 +122,7 @@ Research design references for the task: **{prompt}**
 
 def style_task(agent: Agent, prompt: str) -> Task:
     return Task(
-        description=f"""
-Create a DesignBrief for the task: **{prompt}**
-
-1. Read the references:
-   file_reader(filepath="{REFS_FILE}")
-
-2. Synthesize the brief:
-   - Google Fonts with character (not Inter, not Roboto):
-     Headings: Cormorant Garamond / Syne / DM Serif Display / Fraunces / Playfair Display
-     Body: DM Sans / Plus Jakarta Sans / Outfit / Manrope / Epilogue
-   - 5 specific HEX colors
-   - style_direction: at least 3 sentences
-
-3. Save JSON (no markdown wrapper):
-   workspace_writer(filename="brief.json", content=<JSON>)
-
-JSON format:
-{{
-  "color_primary": "#...", "color_secondary": "#...", "color_accent": "#...",
-  "color_background": "#...", "color_text": "#...",
-  "font_heading": "...", "font_body": "...",
-  "style_direction": "...", "mood": "...",
-  "layout_pattern": "...", "visual_metaphor": "...",
-  "key_elements": ["...", "...", "..."],
-  "target_audience": "...", "brand_personality": "..."
-}}
-""",
+        description=_load_prompt("style_task").format(prompt=prompt, refs_file=REFS_FILE),
         expected_output=f"Confirmation of save: {BRIEF_FILE}",
         agent=agent,
     )
@@ -203,17 +165,13 @@ def generation_task(agent: Agent, prompt: str, output_format: str,
     revision_block = f"\n[CRITIC REVISIONS]\n{revision_notes}\n" if revision_notes else ""
 
     return Task(
-        description=f"""
-Create a design for the task: **{prompt}**
-Format: **{output_format}**
-{revision_block}
-1. Read the brief:
-   file_reader(filepath="{BRIEF_FILE}")
-
-2. {instructions}
-
-Strictly follow the colors and fonts from the brief.
-""",
+        description=_load_prompt("generation_task").format(
+            prompt=prompt,
+            output_format=output_format,
+            revision_block=revision_block,
+            brief_file=BRIEF_FILE,
+            instructions=instructions,
+        ),
         expected_output="Confirmation of final file saved to output/.",
         agent=agent,
     )
@@ -221,30 +179,11 @@ Strictly follow the colors and fonts from the brief.
 
 def critique_task(agent: Agent, prompt: str, output_path: str) -> Task:
     return Task(
-        description=f"""
-Evaluate the design for the task: **{prompt}**
-File to evaluate: {output_path}
-
-1. Read the brief for cross-checking:
-   file_reader(filepath="{BRIEF_FILE}")
-
-2. Score the design (each criterion 0.0–10.0):
-   - visual_hierarchy_score, typography_score, color_harmony_score
-   - layout_score, brief_alignment_score
-   overall_score = average; should_iterate=true if < 7.0
-
-3. Save the result:
-   workspace_writer(filename="critique.json", content=<JSON without markdown>)
-
-JSON format:
-{{
-  "overall_score": 0.0,
-  "visual_hierarchy_score": 0.0, "typography_score": 0.0,
-  "color_harmony_score": 0.0, "layout_score": 0.0, "brief_alignment_score": 0.0,
-  "strengths": ["...", "..."], "improvements": ["...", "..."],
-  "verdict": "...", "should_iterate": false, "revised_brief_notes": "..."
-}}
-""",
+        description=_load_prompt("critique_task").format(
+            prompt=prompt,
+            output_path=output_path,
+            brief_file=BRIEF_FILE,
+        ),
         expected_output=f"Confirmation of save: {CRITIQUE_FILE}",
         agent=agent,
     )

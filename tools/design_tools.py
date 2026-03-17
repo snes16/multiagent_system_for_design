@@ -1,6 +1,8 @@
 from __future__ import annotations
+import logging
 import os
 import json
+logger = logging.getLogger(__name__)
 from typing import Optional
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
@@ -46,6 +48,7 @@ class FirecrawlScrapeTool(BaseTool):
                 return result.get("markdown", "")[:4000]
 
         except Exception as e:
+            logger.error("firecrawl_scrape failed url=%s: %s", url, e)
             return f"[firecrawl_scrape error] {url}: {e}"
 
 
@@ -86,6 +89,7 @@ class FirecrawlCrawlTool(BaseTool):
             return "\n\n---\n\n".join(summaries) if summaries else "No pages found."
 
         except Exception as e:
+            logger.error("firecrawl_crawl failed url=%s: %s", url, e)
             return f"[firecrawl_crawl error] {url}: {e}"
 
 
@@ -116,6 +120,7 @@ class WebSearchTool(BaseTool):
                     )
             return "\n\n".join(results) if results else "No results found."
         except Exception as e:
+            logger.error("web_search failed query=%r: %s", query, e)
             return f"[web_search error] {e}"
 
 
