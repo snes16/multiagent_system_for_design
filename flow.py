@@ -12,7 +12,6 @@ from rich.panel import Panel
 logger = logging.getLogger(__name__)
 
 from agents.builders import (
-    CRITIQUE_FILE,
     critic_agent,
     critique_task,
     generation_task,
@@ -165,6 +164,12 @@ class DesignerFlow(Flow[DesignerState]):
             console.print(f"  • {imp}")
 
         self.state.iteration += 1
+        if self.state.iteration >= settings.max_generation_iter:
+            console.print(
+                f"[yellow]Max iterations ({settings.max_generation_iter}) reached — accepting best result.[/yellow]"
+            )
+            self.state.accepted = True
+            return "done"
         return "generate"
 
     # ── 6. Done ───────────────────────────────────────────────────────────────
