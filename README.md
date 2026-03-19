@@ -12,6 +12,8 @@ flowchart TD
 
     O -->|run_research| R[Research Agent]
     R -->|references.md| WS[(Workspace\noutput/.workspace/)]
+    WS -->|read_workspace_file| O
+    O -->|"refs weak? re-research\n(max 1x)"| R
 
     O -->|run_style_analysis| SA[Style Analyst]
     WS -->|read references.md| SA
@@ -19,38 +21,62 @@ flowchart TD
 
     O -->|run_generation| G[Design Generator]
     WS -->|read brief.json| G
-    G -->|landing.html / layout.svg| OUT[(output/)]
+    G -->|file| STG[(output/.staging/)]
 
     O -->|run_critique| C[Critic Agent]
     WS -->|read brief.json| C
+    STG -->|read design file| C
     C -->|critique.json| WS
+    WS -->|read_workspace_file| O
 
-    WS -->|read critique.json| O
-    O -->|score >= min?| DEC{Quality\ncheck}
-    DEC -->|yes| DONE([Done])
-    DEC -->|no, pass revision_notes| G
+    O --> DEC{Quality\ncheck}
+    DEC -->|"score ≥ min_score"| MV[promote_output]
+    MV --> DONE([Done])
+
+    DEC -->|"code-level issues"| G
+    DEC -->|"concept-level issues\nrun_style_revision → run_generation"| SRV[Style Revision]
+    SRV -->|updated brief.json| WS
+    SRV --> G
+
+    style DEC fill:#f5f5f5,stroke:#999
+    style DONE fill:#d4edda,stroke:#28a745
 ```
+
+> Generation iterates until `overall_score ≥ min_quality_score` or the hard `max_generation_iter` limit is reached.
+> Files reach `output/` only after passing the quality check via `promote_output`.
 
 ## Flow Architecture
 
 ```
 @start  research()         — Research Agent (Firecrawl + WebSearch)
           │
-@listen analyze_style()    — Style Analyst → DesignBrief (JSON)
+@listen analyze_style()    — Style Analyst → DesignBrief → brief.json
           │
-@listen generate()         — Design Generator → file in output/
+@listen generate()         — Design Generator → file in output/.staging/
           │
-@listen critique()         — Critic Agent → CritiqueResult (JSON)
+@listen critique()         — Critic Agent → CritiqueResult → critique.json
           │
-@router check_quality()    ──→ "done"     (score ≥ MIN_SCORE)
-                           └──→ "generate" (iterate, score < MIN_SCORE)
+@router check_quality()    ──→ "done"      (score ≥ MIN_SCORE or iter limit reached)
+                           └──→ "generate"  (iterate, score < MIN_SCORE)
           │
-@listen done()             — final output
+@listen done()             — promote staging → output/, final output
 ```
 
-All shared state lives in `DesignerState(FlowState)`. Each step reads and writes
-`self.state` directly. There are no `context=[]` lists between tasks — data is
-passed through files in `output/.workspace/`.
+Data between agents is passed through files in `output/.workspace/`.
+Generated files live in `output/.staging/` until promoted after passing quality check.
+
+## What was improved
+
+| Area | Before | After |
+|------|--------|-------|
+| **Infinite loop protection** | No limit on generation iterations — Critic could cycle forever | Hard limit via `_generation_counter` in code + `check_quality()` guard in flow; termination reason logged (`quality_passed` / `max_iterations`) |
+| **Revision routing** | All revision notes went to Generator regardless of issue type | Orchestrator classifies critique: code-level → Generator, concept-level → Style Analyst updates `brief.json` first, then Generator reads the new brief |
+| **Re-research path** | Research ran once; weak references silently produced weak briefs | Orchestrator explicitly evaluates references after research and can re-run `run_research` with a refined query (max 1 re-research) |
+| **Output integrity** | Every generation overwrote `output/` directly; last iteration = final file even if it was worse | Generator writes to `output/.staging/`; file reaches `output/` only after `promote_output` — quality check is a hard gate |
+| **Settings** | `os.getenv` hardcoded throughout | All config in `config/settings.py` (pydantic-settings, env-overridable) |
+| **Observability** | Silent failures, no structured logging | `logging` throughout; `termination_reason` in state; `logger.warning` on limit hit |
+| **Reliability** | Single LLM call failure crashed the pipeline | `_run_crew_with_retry` wraps every crew call with exponential backoff |
+| **Prompt management** | Task descriptions inline in Python strings | Extracted to `prompts/*.txt`, loaded at runtime — editable without touching code |
 
 ## Installation
 
@@ -66,6 +92,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 FIRECRAWL_API_KEY=fc-...
 MIN_QUALITY_SCORE=7.0
 OUTPUT_DIR=./output
+MAX_GENERATION_ITER=3
 ```
 
 ## Usage
@@ -90,15 +117,26 @@ python main.py "premium jewelry brand" --format html --min-score 8
 
 ```
 ai-designer/
-├── main.py               # CLI (click)
-├── flow.py               # DesignerFlow — full pipeline
+├── main.py                    # CLI (click)
+├── flow.py                    # DesignerFlow — full pipeline
 ├── agents/
-│   └── builders.py       # Agent and task factories
+│   ├── builders.py            # Agent and task factories
+│   └── orchestrator.py        # ReAct orchestrator agent
 ├── tools/
-│   └── design_tools.py   # Firecrawl, WebSearch, FileWriter
+│   ├── design_tools.py        # Firecrawl, WebSearch, FileWriter (→ staging)
+│   ├── workspace.py           # Workspace + staging helpers
+│   └── orchestrator_tools.py  # Run*Tool, PromoteOutputTool
+├── prompts/                   # Agent task descriptions (plain text)
 ├── models/
-│   └── state.py          # DesignerState(FlowState), DesignBrief, CritiqueResult
-└── output/               # Generated results
+│   └── state.py               # DesignerState, DesignBrief, CritiqueResult
+├── config/
+│   ├── settings.py            # Pydantic settings (env-overridable)
+│   └── logging_config.py
+├── tests/
+│   └── test_tools.py          # Unit tests (no API calls)
+└── output/
+    ├── .workspace/            # Intermediate files (references, brief, critique)
+    └── .staging/              # Pre-promotion generated files
 ```
 
 ## Adding a New Format
