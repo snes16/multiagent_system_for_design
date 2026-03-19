@@ -140,9 +140,8 @@ class FileWriterTool(BaseTool):
     args_schema: type[BaseModel] = WriteInput
 
     def _run(self, filename: str, content: str) -> str:
-        out_dir = os.getenv("OUTPUT_DIR", "./output")
-        os.makedirs(out_dir, exist_ok=True)
-        path = os.path.join(out_dir, filename)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(content)
-        return f"saved:{path}"
+        from tools.workspace import staging_path
+        path = staging_path(filename)
+        path.write_text(content, encoding="utf-8")
+        logger.info("Saved to staging: %s", path)
+        return f"staged:{path}"

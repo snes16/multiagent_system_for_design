@@ -10,9 +10,11 @@ def _load_prompt(name: str) -> str:
 from tools.orchestrator_tools import (
     RunResearchTool,
     RunStyleAnalysisTool,
+    RunStyleRevisionTool,
     RunGenerationTool,
     RunCritiqueTool,
     ReadWorkspaceFileTool,
+    PromoteOutputTool,
 )
 
 def _llm() -> LLM:
@@ -44,9 +46,11 @@ def orchestrator_agent() -> Agent:
         tools=[
             RunResearchTool(),
             RunStyleAnalysisTool(),
+            RunStyleRevisionTool(),
             RunGenerationTool(),
             RunCritiqueTool(),
             ReadWorkspaceFileTool(),
+            PromoteOutputTool(),
         ],
         llm=_llm(),
         verbose=True,

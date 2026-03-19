@@ -42,6 +42,9 @@ class DesignerFlow(Flow[DesignerState]):
 
     @start()
     def research(self) -> str:
+        from tools.orchestrator_tools import _generation_counter
+        _generation_counter.clear()
+
         console.print(Panel(
             f"[bold]Task:[/bold] {self.state.prompt}\n"
             f"[bold]Format:[/bold] {self.state.output_format.value}",
@@ -150,10 +153,12 @@ class DesignerFlow(Flow[DesignerState]):
     def check_quality(self) -> str:
         c = self.state.critique
         if not c:
+            self.state.termination_reason = "no_critique"
             return "done"
 
         if c.overall_score >= settings.min_quality_score or not c.should_iterate:
             self.state.accepted = True
+            self.state.termination_reason = "quality_passed"
             console.print("[green]Quality accepted.[/green]")
             return "done"
 
@@ -165,10 +170,15 @@ class DesignerFlow(Flow[DesignerState]):
 
         self.state.iteration += 1
         if self.state.iteration >= settings.max_generation_iter:
+            self.state.termination_reason = "max_iterations"
             console.print(
-                f"[yellow]Max iterations ({settings.max_generation_iter}) reached — accepting best result.[/yellow]"
+                f"[yellow]Max iterations ({settings.max_generation_iter}) reached "
+                f"— finishing with best effort result (score {c.overall_score:.1f}/10).[/yellow]"
             )
-            self.state.accepted = True
+            logger.warning(
+                "Pipeline stopped at iteration limit | score=%.1f min=%.1f",
+                c.overall_score, settings.min_quality_score,
+            )
             return "done"
         return "generate"
 
@@ -176,6 +186,13 @@ class DesignerFlow(Flow[DesignerState]):
 
     @listen("done")
     def done(self):
+        from tools.workspace import promote_to_output
+        if self.state.output_path and self.state.termination_reason in ("quality_passed", "max_iterations"):
+            filename = Path(self.state.output_path).name
+            promoted = promote_to_output(filename)
+            if not promoted.startswith("[promote]"):
+                self.state.output_path = promoted
+
         score_line = ""
         if self.state.critique:
             c = self.state.critique
@@ -184,17 +201,31 @@ class DesignerFlow(Flow[DesignerState]):
                 f"\nStrengths: {', '.join(c.strengths[:2])}"
             )
 
+        reason = self.state.termination_reason
+        if reason == "max_iterations":
+            title = "Result [best effort]"
+            border = "yellow"
+            status = "[yellow]Stopped: iteration limit reached — result may not meet quality target.[/yellow]\n"
+        else:
+            title = "Result"
+            border = "green"
+            status = ""
+
         console.print(Panel(
-            f"[bold green]Done![/bold green]\n"
-            f"File: {self.state.output_path}\n"
-            f"Iterations: {self.state.iteration + 1}"
+            f"{status}"
+            f"[bold]File:[/bold] {self.state.output_path}\n"
+            f"[bold]Iterations:[/bold] {self.state.iteration + 1}"
             f"{score_line}\n\n"
             f"[dim]Workspace: output/.workspace/ (references.md, brief.json, critique.json)[/dim]",
-            title="Result",
-            border_style="green",
+            title=title,
+            border_style=border,
         ))
-        logger.info("Pipeline finished | output=%s score=%s", self.state.output_path,
-                    self.state.critique.overall_score if self.state.critique else "n/a")
+        logger.info(
+            "Pipeline finished | reason=%s output=%s score=%s",
+            reason or "no_critique",
+            self.state.output_path,
+            self.state.critique.overall_score if self.state.critique else "n/a",
+        )
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -229,7 +260,11 @@ def _build_revision_notes() -> str:
 
 
 def _find_latest_output(fmt: OutputFormat) -> str:
+    from tools.workspace import staging_dir
     out_dir = Path(os.getenv("OUTPUT_DIR", "./output"))
     ext = ".svg" if fmt == OutputFormat.SVG else ".html"
-    files = sorted(out_dir.glob(f"*{ext}"), key=lambda p: p.stat().st_mtime, reverse=True)
-    return str(files[0]) if files else str(out_dir)
+    for search_dir in [out_dir, staging_dir()]:
+        files = sorted(search_dir.glob(f"*{ext}"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if files:
+            return str(files[0])
+    return str(out_dir)

@@ -177,6 +177,38 @@ def generation_task(agent: Agent, prompt: str, output_format: str,
     )
 
 
+def style_revision_task(agent: Agent, prompt: str, revision_notes: str) -> Task:
+    """Style re-analysis triggered after critique flags conceptual issues."""
+    return Task(
+        description=f"""
+Revise the DesignBrief for the task: **{prompt}**
+
+The previous design was critiqued. The following issues require a conceptual change
+at the brief level (not just code-level fixes):
+
+REVISION NOTES:
+{revision_notes}
+
+Steps:
+1. Read the current brief:
+   file_reader(filepath="{BRIEF_FILE}")
+
+2. Read the current critique:
+   file_reader(filepath="{CRITIQUE_FILE}")
+
+3. Update the brief addressing the revision notes specifically.
+   Change only what the critique requests — keep what scored well.
+   If typography_score was high, keep the fonts.
+   If color_harmony_score was low, change the colors.
+
+4. Save the updated brief (overwrite brief.json):
+   workspace_writer(filename="brief.json", content=<updated JSON>)
+""",
+        expected_output=f"Confirmation of updated brief saved to: {BRIEF_FILE}",
+        agent=agent,
+    )
+
+
 def critique_task(agent: Agent, prompt: str, output_path: str) -> Task:
     return Task(
         description=_load_prompt("critique_task").format(

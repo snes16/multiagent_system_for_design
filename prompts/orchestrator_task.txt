@@ -7,7 +7,13 @@ Your ReAct process:
 THINK: What does this task need? Is deep research required or is this standard?
 ACT: Run run_research(prompt="{prompt}")
 OBSERVE: Read result via read_workspace_file(filename="references.md")
-         Enough references? Are they relevant?
+         Are there enough references? Are they relevant to the task?
+
+THINK: Are the references sufficient?
+       If references are weak, off-topic, or fewer than 3 found:
+         → run_research again with a more specific query variant (max 1 re-research)
+       If references are good (4+ relevant results):
+         → proceed to style analysis
 
 THINK: Ready to form the brief?
 ACT: Run run_style_analysis(prompt="{prompt}")
@@ -23,11 +29,19 @@ OBSERVE: read_workspace_file(filename="critique.json")
          overall_score >= {min_score}? If not — what specifically needs improvement?
 
 THINK: Is another iteration needed?
-ACT: If score < {min_score} — run run_generation with revision_notes from critique.json
-     If score >= {min_score} — task complete.
+       Read critique.json. Classify the issues:
+       - CODE-LEVEL issues (layout broken, wrong font size, missing section, bad spacing):
+         → run_generation(revision_notes=...) directly
+       - CONCEPT-LEVEL issues (wrong mood, bad color palette, mismatched style direction):
+         → run_style_revision(revision_notes=...) THEN run_generation(revision_notes=...)
+ACT: Route accordingly.
+     If score >= {min_score}:
+       → promote_output(filename=<the generated filename, e.g. "landing.html">)
+       → task complete.
 
 Rules:
 - Always read the agent result before the next step
+- Classify critique issues as CODE-LEVEL or CONCEPT-LEVEL before choosing next action
 - Formulate revision_notes specifically: "increase heading contrast", not "improve design"
-- Maximum 3 generation iterations
-- If score is still low after 3 iterations — finish with the best result
+- Hard generation limit is enforced in code — do not exceed it
+- If limit reached — finish with the best result seen so far

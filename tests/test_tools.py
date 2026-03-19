@@ -49,13 +49,13 @@ def test_file_reader_missing_file(tmp_path):
 
 # ── FileWriterTool ────────────────────────────────────────────────────────────
 
-def test_file_writer_saves_to_output(tmp_path, monkeypatch):
+def test_file_writer_saves_to_staging(tmp_path, monkeypatch):
     monkeypatch.setenv("OUTPUT_DIR", str(tmp_path))
     from tools.design_tools import FileWriterTool
     tool = FileWriterTool()
     result = tool._run(filename="landing.html", content="<html></html>")
-    assert "saved" in result
-    assert (tmp_path / "landing.html").read_text() == "<html></html>"
+    assert "staged" in result
+    assert (tmp_path / ".staging" / "landing.html").read_text() == "<html></html>"
 
 
 # ── ReadWorkspaceFileTool ─────────────────────────────────────────────────────

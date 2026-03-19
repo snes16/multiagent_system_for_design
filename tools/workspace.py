@@ -19,6 +19,30 @@ def workspace_path(filename: str) -> Path:
     return workspace_dir() / filename
 
 
+def staging_dir() -> Path:
+    """Temporary output before quality check passes."""
+    out = Path(os.getenv("OUTPUT_DIR", "./output"))
+    stg = out / ".staging"
+    stg.mkdir(parents=True, exist_ok=True)
+    return stg
+
+
+def staging_path(filename: str) -> Path:
+    return staging_dir() / filename
+
+
+def promote_to_output(filename: str) -> str:
+    """Move file from staging to output/ after quality check passes."""
+    import shutil
+    src = staging_dir() / filename
+    dst = Path(os.getenv("OUTPUT_DIR", "./output")) / filename
+    if not src.exists():
+        return f"[promote] staging file not found: {src}"
+    shutil.move(str(src), str(dst))
+    logger.info("Promoted %s → %s", src, dst)
+    return str(dst)
+
+
 # ── FileReaderTool ────────────────────────────────────────────────────────────
 
 class ReadInput(BaseModel):

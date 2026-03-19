@@ -70,3 +70,7 @@ class DesignerState(FlowState):
     # Iterations
     iteration: int = 0
     accepted: bool = False
+    termination_reason: str = ""  # "quality_passed" | "max_iterations" | "no_critique"
+    generation_count: int = 0       # hard counter incremented in code, not by LLM
+    best_output_path: str = ""      # path with the best score seen so far
+    best_score: float = 0.0         # best overall_score seen across all iterations
